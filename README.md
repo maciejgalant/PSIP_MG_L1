@@ -10,3 +10,4 @@ MACIEJ - KUTNOWSKI
 - Michał - biłgorajski
 - Bartek - radomszczański
 - Marcin - miński
+- Jakub - chełmski
