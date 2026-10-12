@@ -1,6 +1,6 @@
 # PSIP\_MG\_L1
 - Stanisław - turecki
-MACIEJ - KUTNOWSKI
+- MACIEJ - KUTNOWSKI
 - Daniel - sochaczewski
 - Jan - miński
 - Dominik - koniński
