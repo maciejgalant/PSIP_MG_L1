@@ -7,3 +7,4 @@ Daniel - sochaczewski
 - Kacper - legnicki
 - Tymoteusz - toruński
 - Dawid - bocheński
+- Michał - biłgorajski
