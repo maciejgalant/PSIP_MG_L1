@@ -8,4 +8,5 @@ MACIEJ - KUTNOWSKI
 - Tymoteusz - toruński
 - Dawid - bocheński
 - Michał - biłgorajski
-- Bartek - radomszczański 
+- Bartek - radomszczański
+- Marcin - miński
