@@ -3,4 +3,4 @@
 MACIEJ - KUTNOWSKI
 Daniel - sochaczewski
 - Jan - miński
-
+- Dominik - koniński
