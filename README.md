@@ -2,5 +2,5 @@
 - Stanisław - turecki
 MACIEJ - KUTNOWSKI
 Daniel - sochaczewski
-
+- Jan - miński
 
