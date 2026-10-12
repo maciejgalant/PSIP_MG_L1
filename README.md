@@ -6,3 +6,4 @@ Daniel - sochaczewski
 - Dominik - koniński
 - Kacper - legnicki
 - Tymoteusz - toruński
+- Dawid - bocheński
