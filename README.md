@@ -2,5 +2,5 @@
 
 - MACIEJ - KUTNOWSKI
 - Bartek - radomszczański
-
+- Stanisław - turecki
 
