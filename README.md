@@ -1,4 +1,6 @@
 # PSIP\_MG\_L1
 
+MACIEJ - KUTNOWSKI
+
 
 
