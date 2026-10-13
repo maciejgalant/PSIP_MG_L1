@@ -1,6 +1,15 @@
 # PSIP\_MG\_L1
-
-MACIEJ - KUTNOWSKI
-
-
-
+- Stanisław - turecki
+- MACIEJ - KUTNOWSKI
+- Daniel - sochaczewski
+- Jan - miński
+- Dominik - koniński
+- Kacper - legnicki
+- Tymoteusz - toruński
+- Dawid - bocheński
+- Michał - biłgorajski
+- Bartek - radomszczański
+- Marcin - miński
+- Jakub - chełmski
+- Julia - hajnowski
+- Jan - warszawski
