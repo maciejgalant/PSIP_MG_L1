@@ -1,0 +1,18 @@
+services:
+  postgis:
+    build:
+      context: .
+      dockerfile: docker/postgis/Dockerfile
+    environment:
+      POSTGRES_USER: psip
+      POSTGRES_PASSWORD: psip
+      POSTGRES_DB: psip
+    ports:
+      - "5444:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./data:/data:ro
+
+
+volumes:
+  pgdata:
