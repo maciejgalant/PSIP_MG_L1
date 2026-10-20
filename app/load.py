@@ -68,3 +68,24 @@ with psycopg2.connect(
 
 print("Schemat grid jest gotowy.")
 
+# 2. Import siatki H3 do schematu grid
+hexagons = Path("/app/hexagons.gpkg")
+
+if not hexagons.exists():
+    raise FileNotFoundError(
+        f"Nie znaleziono siatki H3: {hexagons}"
+    )
+
+run_ogr([
+    "ogr2ogr",
+    "-f", "PostgreSQL",
+    connection,
+    str(hexagons),
+    "-nln", "grid.h3_grid",
+    "-lco", "GEOMETRY_NAME=geom",
+    "-lco", "SCHEMA=grid",
+    "-overwrite",
+])
+
+print("Załadowano siatkę H3 do grid.h3_grid.")
+
