@@ -1,29 +1,3 @@
-services:
-  postgis:
-    build:
-      context: .
-      dockerfile: docker/postgis/Dockerfile
-
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-
-    ports:
-      - "${POSTGRES_PORT}:5432"
-
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-      - ./data:/data:ro
-
-    restart: unless-stopped
-
-volumes:
-  pgdata:
-    name: remote-db-${COMPOSE_PROJECT_NAME}-pgdata
-
-.github/workflows/start_services.yml
-name: Start Remote Database
 
 name: Start Remote Database
 
@@ -33,6 +7,14 @@ on:
       - env-test
       - env-qa
       - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: postgis-${{ github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
   start-db:
@@ -45,20 +27,73 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Start PostGIS
+      - name: Configure environment
+        shell: bash
         env:
-          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          DB_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          case "$GITHUB_REF_NAME" in
+            env-test) PORT=5444 ;;
+            env-qa) PORT=5445 ;;
+            main) PORT=5446 ;;
+            *) exit 1 ;;
+          esac
+
+          test -n "$DB_PASSWORD"
+
+          echo "POSTGRES_PORT=$PORT" >> "$GITHUB_ENV"
+          echo "POSTGRES_USER=psip" >> "$GITHUB_ENV"
+          echo "POSTGRES_DB=psip" >> "$GITHUB_ENV"
+
+      - name: Start PostGIS
+        shell: bash
+        env:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
-          POSTGRES_PORT: ${{ secrets.POSTGRES_PORT }}
-          ENVIRONMENT: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          docker compose \
+            -f docker-compose-remote.yml \
+            -p "remote-db-${GITHUB_REF_NAME}" \
+            up -d --build --wait postgis python
+
+      - name: Generate H3 grid
+        shell: bash
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         run: |
           docker compose \
-            -f docker-compose-remote.yml
-            -p remote-db-${{ github.ref_name }} \
-            up -d --build
+            -f docker-compose-remote.yml \
+            -p "remote-db-${GITHUB_REF_NAME}" \
+            exec -T python python /app/h3_generator.py
+
+      - name: Load data into PostGIS
+        shell: bash
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+        run: |
+          docker compose \
+            -f docker-compose-remote.yml \
+            -p "remote-db-${GITHUB_REF_NAME}" \
+            exec -T python python /app/load.py
+
+      - name: Verify H3 data
+        shell: bash
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+        run: |
+          docker compose \
+            -f docker-compose-remote.yml \
+            -p "remote-db-${GITHUB_REF_NAME}" \
+            exec -T postgis \
+            psql -U psip -d psip \
+            -v ON_ERROR_STOP=1 \
+            -c "SELECT COUNT(*) FROM grid.h3_grid;"
 
       - name: Show running containers
+        shell: bash
         run: |
           docker ps
-          docker volume ls | grep remote-db || true
+          docker volume ls

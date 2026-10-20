@@ -1,3 +1,4 @@
+
 services:
   postgis:
     build:
@@ -13,6 +14,16 @@ services:
       - pgdata:/var/lib/postgresql/data
       - ./data:/data:ro
 
+  python:
+    build:
+      context: .
+      dockerfile: docker/python/Dockerfile
+    environment:
+      PGPASSWORD: psip
+    volumes:
+      - ./app:/app
+      - ./data:/app/data:ro
+    command: ["tail", "-f", "/dev/null"]
 
 volumes:
   pgdata:
