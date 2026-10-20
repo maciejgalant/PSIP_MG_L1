@@ -1,0 +1,75 @@
+
+name: Destroy Remote Database
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Wybierz srodowisko"
+        required: true
+        type: choice
+        options:
+          - env-test
+          - env-qa
+          - main
+
+      confirmation:
+        description: "Wpisz DESTROY-nazwa-srodowiska"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: postgis-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  destroy-db:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Validate request
+        shell: bash
+        env:
+          TARGET_ENV: ${{ inputs.environment }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          if [ "$CONFIRMATION" != "DESTROY-${TARGET_ENV}" ]; then
+            echo "Niepoprawne potwierdzenie."
+            exit 1
+          fi
+
+          case "$TARGET_ENV" in
+            env-test) PORT=5444 ;;
+            env-qa) PORT=5445 ;;
+            main) PORT=5446 ;;
+            *) exit 1 ;;
+          esac
+
+          echo "POSTGRES_PORT=$PORT" >> "$GITHUB_ENV"
+
+      - name: Destroy containers
+        shell: bash
+        env:
+          TARGET_ENV: ${{ inputs.environment }}
+          POSTGRES_PASSWORD: "not-used-for-destroy"
+        run: |
+          docker compose \
+            -f docker-compose-remote.yml \
+            -p "remote-db-${TARGET_ENV}" \
+            down --remove-orphans
+
+      - name: Verify
+        shell: bash
+        env:
+          TARGET_ENV: ${{ inputs.environment }}
+        run: |
+          docker ps -a \
+            --filter "label=com.docker.compose.project=remote-db-${TARGET_ENV}"
+
+          docker volume ls

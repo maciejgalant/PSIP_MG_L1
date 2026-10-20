@@ -1,0 +1,62 @@
+
+name: Stop Remote Database
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Wybierz srodowisko"
+        required: true
+        type: choice
+        options:
+          - env-test
+          - env-qa
+          - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: postgis-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  stop-db:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Configure environment
+        shell: bash
+        env:
+          TARGET_ENV: ${{ inputs.environment }}
+        run: |
+          case "$TARGET_ENV" in
+            env-test) PORT=5444 ;;
+            env-qa) PORT=5445 ;;
+            main) PORT=5446 ;;
+            *) exit 1 ;;
+          esac
+
+          echo "POSTGRES_PORT=$PORT" >> "$GITHUB_ENV"
+
+      - name: Stop containers
+        shell: bash
+        env:
+          TARGET_ENV: ${{ inputs.environment }}
+          POSTGRES_PASSWORD: "not-used-for-stop"
+        run: |
+          docker compose \
+            -f docker-compose-remote.yml \
+            -p "remote-db-${TARGET_ENV}" \
+            stop
+
+      - name: Verify
+        shell: bash
+        env:
+          TARGET_ENV: ${{ inputs.environment }}
+        run: |
+          docker ps -a \
+            --filter "label=com.docker.compose.project=remote-db-${TARGET_ENV}"
