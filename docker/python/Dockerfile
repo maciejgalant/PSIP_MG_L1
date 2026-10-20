@@ -33,3 +33,6 @@ RUN pip install --no-cache-dir \
     geoalchemy2
 
 WORKDIR /app
+
+COPY ./app/ /app/
+COPY ./data/ /app/data/
