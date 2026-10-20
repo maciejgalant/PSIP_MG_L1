@@ -1,3 +1,4 @@
+
 services:
   postgis:
     build:
@@ -20,8 +21,8 @@ services:
     environment:
       PGPASSWORD: psip
     volumes:
-      - ./app:/app:ro
-      - ./data:/data:ro
+      - ./app:/app
+      - ./data:/app/data:ro
     command: ["tail", "-f", "/dev/null"]
 
 volumes:
