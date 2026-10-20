@@ -1,26 +1,70 @@
+
 import os
 import subprocess
 from pathlib import Path
+import psycopg2
 
-shapefile = Path("/data/powiat.shp")
+# Konfiguracja polaczenia z PostgreSQL
+DB_HOST = os.getenv("POSTGRES_HOST", "postgis")
+DB_PORT = os.getenv("POSTGRES_PORT", "5432")
+DB_NAME = os.getenv("POSTGRES_DB", "psip")
+DB_USER = os.getenv("POSTGRES_USER", "psip")
+DB_PASSWORD = os.getenv("PGPASSWORD")
 
-if not shapefile.exists():
-    raise FileNotFoundError(f"Nie znaleziono pliku: {shapefile}")
+if not DB_PASSWORD:
+    raise RuntimeError("Brak zmiennej PGPASSWORD")
 
-connection = "PG:host=postgis port=5432 dbname=psip user=psip"
+connection = (
+    f"PG:host={DB_HOST} "
+    f"port={DB_PORT} "
+    f"dbname={DB_NAME} "
+    f"user={DB_USER}"
+)
 
-command = [
+environment = os.environ.copy()
+
+
+def run_ogr(command):
+    subprocess.run(
+        command,
+        env=environment,
+        check=True
+    )
+
+
+# 1. Import granicy powiatu
+powiat = Path("/app/data/powiat.shp")
+
+if not powiat.exists():
+    raise FileNotFoundError(powiat)
+
+run_ogr([
     "ogr2ogr",
     "-f", "PostgreSQL",
     connection,
-    str(shapefile),
-    "-nln", "powiat",
+    str(powiat),
+    "-nln", "public.powiat",
     "-lco", "GEOMETRY_NAME=geom",
     "-overwrite",
-]
+])
 
-environment = os.environ.copy()
-environment["PGPASSWORD"] = "psip"
+print("Załadowano granice powiatu.")
 
-subprocess.run(command, env=environment, check=True)
-print("Załadowano powiat.shp do tabeli powiat w bazie psip.")
+
+# Automatyczne tworzenie schematu grid
+import psycopg2
+
+with psycopg2.connect(
+    host=DB_HOST,
+    port=DB_PORT,
+    dbname=DB_NAME,
+    user=DB_USER,
+    password=DB_PASSWORD
+) as conn:
+    with conn.cursor() as cursor:
+        cursor.execute(
+            "CREATE SCHEMA IF NOT EXISTS grid;"
+        )
+
+print("Schemat grid jest gotowy.")
+
