@@ -1,91 +1,63 @@
-
+"""Import county and all H3 resolutions into PostGIS (EPSG:2180)."""
 import os
 import subprocess
 from pathlib import Path
+
 import psycopg2
 
-# Konfiguracja polaczenia z PostgreSQL
-DB_HOST = os.getenv("POSTGRES_HOST", "postgis")
-DB_PORT = os.getenv("POSTGRES_PORT", "5432")
-DB_NAME = os.getenv("POSTGRES_DB", "psip")
-DB_USER = os.getenv("POSTGRES_USER", "psip")
-DB_PASSWORD = os.getenv("PGPASSWORD")
-
-if not DB_PASSWORD:
-    raise RuntimeError("Brak zmiennej PGPASSWORD")
-
-connection = (
-    f"PG:host={DB_HOST} "
-    f"port={DB_PORT} "
-    f"dbname={DB_NAME} "
-    f"user={DB_USER}"
-)
-
-environment = os.environ.copy()
+HOST = os.getenv("POSTGRES_HOST", "postgis")
+PORT = os.getenv("POSTGRES_PORT", "5432")
+DB = os.getenv("POSTGRES_DB", "psip")
+USER = os.getenv("POSTGRES_USER", "psip")
+PASSWORD = os.getenv("PGPASSWORD") or os.getenv("POSTGRES_PASSWORD")
+COUNTY = Path(os.getenv("H3_INPUT_FILE", "/app/data/powiat.shp"))
+H3_FILE = Path(os.getenv("H3_OUTPUT_FILE", "/app/hexagons.gpkg"))
 
 
-def run_ogr(command):
-    subprocess.run(
-        command,
-        env=environment,
-        check=True
-    )
+def import_layer(path, source_layer, target):
+    command = [
+        "ogr2ogr", "-f", "PostgreSQL",
+        f"PG:host={HOST} port={PORT} dbname={DB} user={USER}",
+        str(path),
+    ]
+    if source_layer:
+        command.append(source_layer)
+    command.extend([
+        "-nln", target, "-overwrite", "-t_srs", "EPSG:2180",
+        "-lco", "GEOMETRY_NAME=geom", "-lco", "SPATIAL_INDEX=GIST",
+    ])
+    subprocess.run(command, check=True, env=os.environ.copy())
 
 
-# 1. Import granicy powiatu
-powiat = Path("/app/data/powiat.shp")
+def main():
+    if not PASSWORD:
+        raise RuntimeError("Missing PGPASSWORD or POSTGRES_PASSWORD")
+    if not COUNTY.is_file() or not H3_FILE.is_file():
+        raise FileNotFoundError(f"Expected {COUNTY} and {H3_FILE}")
+    with psycopg2.connect(host=HOST, port=PORT, dbname=DB, user=USER, password=PASSWORD) as conn:
+        with conn.cursor() as cur:
+            cur.execute("CREATE SCHEMA IF NOT EXISTS grid")
+    import_layer(COUNTY, None, "public.powiat")
+    import_layer(H3_FILE, "h3_grid", "grid.h3_grid")
+    with psycopg2.connect(host=HOST, port=PORT, dbname=DB, user=USER, password=PASSWORD) as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT COUNT(*), COUNT(DISTINCT h3_id),
+                       COUNT(DISTINCT resolution),
+                       COUNT(*) FILTER (WHERE ST_SRID(geom) <> 2180 OR NOT ST_IsValid(geom))
+                FROM grid.h3_grid
+            """)
+            total, unique_ids, resolutions, invalid = cur.fetchone()
+            if total == 0 or unique_ids != total or resolutions != 3 or invalid:
+                raise ValueError(f"Invalid H3 grid: count={total} unique={unique_ids} resolutions={resolutions} invalid={invalid}")
+            cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS h3_grid_h3_id_idx ON grid.h3_grid (h3_id)")
+            cur.execute("CREATE INDEX IF NOT EXISTS h3_grid_resolution_idx ON grid.h3_grid (resolution)")
+            cur.execute("ANALYZE grid.h3_grid")
+            cur.execute("SELECT resolution, COUNT(*) FROM grid.h3_grid GROUP BY resolution ORDER BY resolution")
+            for resolution, count in cur.fetchall():
+                print(f"H3 res={resolution}: {count} cells", flush=True)
+    print(f"Imported {total} cells in EPSG:2180", flush=True)
 
-if not powiat.exists():
-    raise FileNotFoundError(powiat)
 
-run_ogr([
-    "ogr2ogr",
-    "-f", "PostgreSQL",
-    connection,
-    str(powiat),
-    "-nln", "public.powiat",
-    "-lco", "GEOMETRY_NAME=geom",
-    "-overwrite",
-])
-
-print("Załadowano granice powiatu.")
-
-
-# Automatyczne tworzenie schematu grid
-import psycopg2
-
-with psycopg2.connect(
-    host=DB_HOST,
-    port=DB_PORT,
-    dbname=DB_NAME,
-    user=DB_USER,
-    password=DB_PASSWORD
-) as conn:
-    with conn.cursor() as cursor:
-        cursor.execute(
-            "CREATE SCHEMA IF NOT EXISTS grid;"
-        )
-
-print("Schemat grid jest gotowy.")
-
-# 2. Import siatki H3 do schematu grid
-hexagons = Path("/app/hexagons.gpkg")
-
-if not hexagons.exists():
-    raise FileNotFoundError(
-        f"Nie znaleziono siatki H3: {hexagons}"
-    )
-
-run_ogr([
-    "ogr2ogr",
-    "-f", "PostgreSQL",
-    connection,
-    str(hexagons),
-    "-nln", "grid.h3_grid",
-    "-lco", "GEOMETRY_NAME=geom",
-    "-lco", "SCHEMA=grid",
-    "-overwrite",
-])
-
-print("Załadowano siatkę H3 do grid.h3_grid.")
-
+if __name__ == "__main__":
+    main()
