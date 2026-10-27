@@ -30,10 +30,10 @@ def main():
     conn = connect()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT COUNT(*), COUNT(DISTINCT h3_id) FROM grid.h3_grid")
-            rows, unique_ids = cur.fetchone()
-            if rows == 0 or rows != unique_ids:
-                raise ValueError("Tabela grid.h3_grid jest pusta lub zawiera powtarzajace sie h3_id")
+            cur.execute("SELECT COUNT(*), COUNT(DISTINCT h3_id), COUNT(DISTINCT resolution), COUNT(*) FILTER (WHERE ST_SRID(geom) != 2180 OR NOT ST_IsValid(geom)) FROM grid.h3_grid")
+            rows, unique_ids, resolution_count, invalid_geometries = cur.fetchone()
+            if rows == 0 or rows != unique_ids or resolution_count != 3 or invalid_geometries:
+                raise ValueError("Nieprawidlowa siatka H3: wymagane 3 rozdzielczosci, unikalne h3_id i EPSG:2180")
 
             cur.execute("""
                 SELECT f_table_name, f_geometry_column, type, srid
@@ -44,6 +44,9 @@ def main():
             layers = cur.fetchall()
             if not layers:
                 raise ValueError("Brak warstw geometrycznych w schemacie bdot")
+            # Avoid PostgreSQL's hard limit of 1600 columns in one table.
+            if len(layers) + 4 > 1600:
+                raise ValueError("Zbyt wiele warstw BDOT dla szerokiej tabeli: zastosuj model dlugi")
             for table, geom, geometry_type, srid in layers:
                 if srid != 2180:
                     raise ValueError(f"bdot.{table}: oczekiwano EPSG:2180, otrzymano {srid}")
@@ -55,12 +58,13 @@ def main():
             cur.execute("DROP TABLE IF EXISTS grid.h3_aggregation_new")
             cur.execute("""
                 CREATE TABLE grid.h3_aggregation_new AS
-                SELECT fid, h3_id, ST_Transform(geom, 2180)::geometry(Polygon, 2180) AS geom
+                SELECT fid, h3_id, resolution, geom::geometry(Polygon, 2180) AS geom
                 FROM grid.h3_grid
             """)
             cur.execute("ALTER TABLE grid.h3_aggregation_new ADD PRIMARY KEY (fid)")
             cur.execute("CREATE UNIQUE INDEX ON grid.h3_aggregation_new (h3_id)")
             cur.execute("CREATE INDEX ON grid.h3_aggregation_new USING GIST (geom)")
+            cur.execute("CREATE INDEX ON grid.h3_aggregation_new (resolution)")
             conn.commit()
 
         print(f"H3: {rows} komorek; BDOT: {len(layers)} warstw", flush=True)
@@ -68,18 +72,24 @@ def main():
             kind = geometry_type.upper()
             if "POLYGON" in kind:
                 suffix, datatype = "m2", "double precision"
-                expr = sql.SQL("COALESCE(SUM(ST_Area(ST_Intersection(h.geom, b.{g}))), 0)").format(g=sql.Identifier(geom))
+                expr = sql.SQL("COALESCE(SUM(ST_Area(ST_CollectionExtract(ST_Intersection(h.geom, b.{g}), 3))), 0)").format(g=sql.Identifier(geom))
                 predicate = sql.SQL("ST_Intersects(h.geom, b.{g})").format(g=sql.Identifier(geom))
             elif "LINESTRING" in kind:
                 suffix, datatype = "m", "double precision"
-                expr = sql.SQL("COALESCE(SUM(ST_Length(ST_Intersection(h.geom, b.{g}))), 0)").format(g=sql.Identifier(geom))
+                expr = sql.SQL("COALESCE(SUM(ST_Length(ST_CollectionExtract(ST_Intersection(h.geom, b.{g}), 2))), 0)").format(g=sql.Identifier(geom))
                 predicate = sql.SQL("ST_Intersects(h.geom, b.{g})").format(g=sql.Identifier(geom))
             elif "POINT" in kind:
                 suffix, datatype = "count", "bigint"
+                # Border points go to exactly one cell at each resolution:
+                # the cell with the lexicographically lowest H3 identifier.
                 expr = sql.SQL("COUNT(*)")
-                # Zliczenie punktow na granicy dwoch heksagonow w obu komorkach
-                # jest mozliwe (wspolna krawedz ma zerowe pole).
-                predicate = sql.SQL("ST_Covers(h.geom, ST_Force2D(b.{g}))").format(g=sql.Identifier(geom))
+                predicate = sql.SQL("""ST_Covers(h.geom, ST_Force2D(b.{g}))
+                    AND h.h3_id = (
+                        SELECT MIN(h2.h3_id) FROM grid.h3_grid h2
+                        WHERE h2.resolution = h.resolution
+                          AND h2.geom && ST_Force2D(b.{g})
+                          AND ST_Covers(h2.geom, ST_Force2D(b.{g}))
+                    )""").format(g=sql.Identifier(geom))
             else:
                 raise ValueError(f"Nieobslugiwany typ geometrii: bdot.{table} ({kind})")
 
