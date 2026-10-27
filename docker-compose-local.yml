@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: psip
       POSTGRES_DB: psip
     ports:
-      - "5444:5432"
+      - "127.0.0.1:${PSIP_LOCAL_DB_PORT:-5447}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./data:/data:ro

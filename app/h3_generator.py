@@ -1,6 +1,7 @@
 """Generate H3 cells for a county, storing all geometries in EPSG:2180.
 
-H3 indexes require WGS84 coordinates; input and exported geometries use EPSG:2180.
+H3 indexes require WGS84 coordinates; source boundaries can use another declared CRS,
+but computations and output geometries use EPSG:2180.
 Boundary cells are included via H3's experimental 'overlap' mode.
 """
 import os
@@ -34,7 +35,8 @@ def read_area():
     if source.empty or source.crs is None:
         raise ValueError("County boundary is empty or has no CRS")
     if source.crs.to_epsg() != 2180:
-        raise ValueError(f"Expected EPSG:2180 input, got {source.crs}")
+        print(f"Reprojecting county boundary: {source.crs} -> {TARGET_CRS}", flush=True)
+        source = source.to_crs(TARGET_CRS)
 
     area = source.geometry.dropna().union_all()
     if area.is_empty or area.geom_type not in ("Polygon", "MultiPolygon"):
