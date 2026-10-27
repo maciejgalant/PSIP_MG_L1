@@ -94,20 +94,27 @@ def main():
                 raise ValueError(f"Nieobslugiwany typ geometrii: bdot.{table} ({kind})")
 
             column = f"{table}_{suffix}"
+            layer_start = time.monotonic()
+            print(f"[{idx}/{len(layers)}] START bdot.{table}", flush=True)
             with conn.cursor() as cur:
                 cur.execute(sql.SQL("ALTER TABLE grid.h3_aggregation_new ADD COLUMN {c} {t} NOT NULL DEFAULT 0").format(
                     c=sql.Identifier(column), t=sql.SQL(datatype)))
                 cur.execute(sql.SQL("""
-                    UPDATE grid.h3_aggregation_new AS h
-                    SET {column} = (
-                        SELECT {value}
+                    WITH aggregated AS MATERIALIZED (
+                        SELECT h.h3_id, {value} AS metric
                         FROM bdot.{table} AS b
-                        WHERE b.{geom} IS NOT NULL AND {predicate}
+                        JOIN grid.h3_aggregation_new AS h ON {predicate}
+                        WHERE b.{geom} IS NOT NULL
+                        GROUP BY h.h3_id
                     )
+                    UPDATE grid.h3_aggregation_new AS target
+                    SET {column} = aggregated.metric
+                    FROM aggregated
+                    WHERE target.h3_id = aggregated.h3_id
                 """).format(column=sql.Identifier(column), value=expr, table=sql.Identifier(table),
                            geom=sql.Identifier(geom), predicate=predicate))
                 conn.commit()
-            print(f"[{idx}/{len(layers)}] bdot.{table} -> {column}", flush=True)
+            print(f"[{idx}/{len(layers)}] DONE bdot.{table} -> {column}, {time.monotonic()-layer_start:.1f}s", flush=True)
 
         with conn.cursor() as cur:
             cur.execute("DROP TABLE IF EXISTS grid.h3_aggregation_old")
