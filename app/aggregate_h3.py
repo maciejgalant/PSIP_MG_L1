@@ -29,6 +29,11 @@ def main():
     start = time.monotonic()
     conn = connect()
     try:
+        # Session-level lock: second invocation must not touch any staging table.
+        with conn.cursor() as cur:
+            cur.execute("SELECT pg_try_advisory_lock(2180, 3003)")
+            if not cur.fetchone()[0]:
+                raise RuntimeError("Agregacja jest juz uruchomiona w innej sesji")
         with conn.cursor() as cur:
             cur.execute("SELECT COUNT(*), COUNT(DISTINCT h3_id), COUNT(DISTINCT resolution), COUNT(*) FILTER (WHERE ST_SRID(geom) != 2180 OR NOT ST_IsValid(geom)) FROM grid.h3_grid")
             rows, unique_ids, resolution_count, invalid_geometries = cur.fetchone()
@@ -54,17 +59,36 @@ def main():
                     raise ValueError(f"Nieoczekiwana nazwa tabeli: {table}")
 
             cur.execute("CREATE SCHEMA IF NOT EXISTS grid")
-            # Tabela odtworzona na kazde uruchomienie; nie modyfikuje BDOT ani grid.h3_grid.
-            cur.execute("DROP TABLE IF EXISTS grid.h3_aggregation_new")
-            cur.execute("""
-                CREATE TABLE grid.h3_aggregation_new AS
-                SELECT fid, h3_id, resolution, geom::geometry(Polygon, 2180) AS geom
-                FROM grid.h3_grid
-            """)
-            cur.execute("ALTER TABLE grid.h3_aggregation_new ADD PRIMARY KEY (fid)")
-            cur.execute("CREATE UNIQUE INDEX ON grid.h3_aggregation_new (h3_id)")
-            cur.execute("CREATE INDEX ON grid.h3_aggregation_new USING GIST (geom)")
-            cur.execute("CREATE INDEX ON grid.h3_aggregation_new (resolution)")
+            # Preserve a previous published result; resume interrupted staging runs.
+            cur.execute("SELECT to_regclass('grid.h3_aggregation_new') IS NOT NULL")
+            stage_exists = cur.fetchone()[0]
+            if stage_exists:
+                cur.execute("""
+                    SELECT COUNT(*), COUNT(DISTINCT h3_id),
+                           COUNT(*) FILTER (WHERE resolution NOT IN (7,8,9))
+                    FROM grid.h3_aggregation_new
+                """)
+                stage_rows, stage_unique, wrong_res = cur.fetchone()
+                cur.execute("""
+                    SELECT COUNT(*) FROM grid.h3_grid g
+                    FULL JOIN grid.h3_aggregation_new s ON g.h3_id = s.h3_id
+                    WHERE g.h3_id IS NULL OR s.h3_id IS NULL
+                       OR g.resolution IS DISTINCT FROM s.resolution
+                """)
+                mismatch = cur.fetchone()[0]
+                if stage_rows != rows or stage_unique != rows or wrong_res or mismatch:
+                    raise RuntimeError("Tabela robocza nie odpowiada aktualnej siatce H3; wymaga recznej kontroli")
+                print("Wznawiam istniejąca tabele grid.h3_aggregation_new", flush=True)
+            else:
+                cur.execute("""
+                    CREATE TABLE grid.h3_aggregation_new AS
+                    SELECT fid, h3_id, resolution, geom::geometry(Polygon, 2180) AS geom
+                    FROM grid.h3_grid
+                """)
+                cur.execute("ALTER TABLE grid.h3_aggregation_new ADD PRIMARY KEY (fid)")
+                cur.execute("CREATE UNIQUE INDEX ON grid.h3_aggregation_new (h3_id)")
+                cur.execute("CREATE INDEX ON grid.h3_aggregation_new USING GIST (geom)")
+                cur.execute("CREATE INDEX ON grid.h3_aggregation_new (resolution)")
             conn.commit()
 
         print(f"H3: {rows} komorek; BDOT: {len(layers)} warstw", flush=True)
@@ -94,6 +118,18 @@ def main():
                 raise ValueError(f"Nieobslugiwany typ geometrii: bdot.{table} ({kind})")
 
             column = f"{table}_{suffix}"
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema='grid' AND table_name='h3_aggregation_new'
+                          AND column_name=%s
+                    )
+                """, (column,))
+                already_done = cur.fetchone()[0]
+            if already_done:
+                print(f"[{idx}/{len(layers)}] SKIP bdot.{table}: zapisany wynik", flush=True)
+                continue
             layer_start = time.monotonic()
             print(f"[{idx}/{len(layers)}] START bdot.{table}", flush=True)
             with conn.cursor() as cur:
@@ -117,6 +153,20 @@ def main():
             print(f"[{idx}/{len(layers)}] DONE bdot.{table} -> {column}, {time.monotonic()-layer_start:.1f}s", flush=True)
 
         with conn.cursor() as cur:
+            cur.execute("""
+                SELECT COUNT(*) FROM information_schema.columns
+                WHERE table_schema='grid' AND table_name='h3_aggregation_new'
+            """)
+            column_count = cur.fetchone()[0]
+            if column_count != len(layers) + 4:
+                raise RuntimeError(f"Niepelny wynik: {column_count} kolumn zamiast {len(layers)+4}")
+            cur.execute("""
+                SELECT COUNT(*), COUNT(DISTINCT h3_id)
+                FROM grid.h3_aggregation_new
+            """)
+            total_rows, distinct_ids = cur.fetchone()
+            if total_rows != rows or distinct_ids != rows:
+                raise RuntimeError("Niepelny wynik: liczba komorek lub h3_id niezgodna")
             cur.execute("DROP TABLE IF EXISTS grid.h3_aggregation_old")
             cur.execute("""
                 SELECT EXISTS (
