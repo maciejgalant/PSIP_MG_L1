@@ -35,3 +35,16 @@ W QGIS wystarczy dodać warstwę `grid.h3_iop_res*` – styl wczyta się automat
 
 Wymaga `grid.h3_aggregation` z kolumną `resolution` (aktualna wersja `aggregate_h3.py`).
 Workflow `Start Remote Database` liczy IOP po każdym pushu i publikuje mapy jako artefakt `iop-maps-<środowisko>`.
+
+## GUI (Tkinter, bez dodatkowych pakietów na hoście)
+
+Uruchom z katalogu repozytorium, przy działającym `docker-compose-local.yml`:
+
+```powershell
+py gui/lab3_app.py        # panel: kontenery, kontrola bazy, agregacja, Oblicz IOP, Mapy PNG
+py gui/h3_map.py          # mapa H3: klasy IOP lub dowolne kryterium *_norm, szczegóły komórki
+py gui/weights_editor.py  # edytor wag IVRF -> app/iop_weights.csv, "Zapisz i przelicz IOP"
+```
+
+Mapę i edytor wag można też otworzyć przyciskami w panelu. Na mapie: kółko myszy = zoom,
+przeciąganie = przesuwanie, kliknięcie heksagonu = IOP komórki i kryteria o największym wpływie (k·w).
