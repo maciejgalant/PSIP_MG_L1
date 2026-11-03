@@ -25,6 +25,7 @@ def import_layer(path, source_layer, target):
     command.extend([
         "-nln", target, "-overwrite", "-t_srs", "EPSG:2180",
         "-lco", "GEOMETRY_NAME=geom", "-lco", "SPATIAL_INDEX=GIST",
+        "-lco", "PRECISION=NO",
     ])
     subprocess.run(command, check=True, env=os.environ.copy())
 
