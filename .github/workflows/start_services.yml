@@ -92,6 +92,37 @@ jobs:
             -v ON_ERROR_STOP=1 \
             -c "SELECT COUNT(*) FROM grid.h3_grid;"
 
+      # LAB 4: normalizacja, wagi, IOP i mapy. Wymaga grid.h3_aggregation
+      # (load_bdot.py + aggregate_h3.py) - bez niej krok jest pomijany z ostrzezeniem.
+      - name: Compute IOP
+        id: iop
+        shell: bash
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+        run: |
+          set -euo pipefail
+          compose() {
+            docker compose -f docker-compose-remote.yml -p "remote-db-${GITHUB_REF_NAME}" "$@"
+          }
+          exists=$(compose exec -T postgis psql -U psip -d psip -tAc \
+            "SELECT to_regclass('grid.h3_aggregation') IS NOT NULL")
+          if [ "$exists" != "t" ]; then
+            echo "::warning::Brak grid.h3_aggregation - pomijam IOP. Uruchom load_bdot.py i aggregate_h3.py."
+            exit 0
+          fi
+          compose exec -T python python /app/compute_iop.py
+          compose exec -T python python /app/plot_iop.py
+          rm -rf iop_output
+          compose cp python:/app/output ./iop_output
+          echo "maps=true" >> "$GITHUB_OUTPUT"
+
+      - name: Upload IOP maps
+        if: steps.iop.outputs.maps == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: iop-maps-${{ github.ref_name }}
+          path: iop_output/*.png
+
       - name: Show running containers
         shell: bash
         run: |
