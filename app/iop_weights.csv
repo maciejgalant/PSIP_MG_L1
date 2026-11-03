@@ -38,18 +38,18 @@ oipr_p_count,-0.1,obiekt przyrodniczy (punkt),pojedyncze drzewa i głazy
 oisz_a_m2,-0.7,szuwary,podmokły grunt z roślinnością
 ptgn_a_m2,0.2,grunt nieużytkowy / odsłonięty,teren otwarty bez roślinności - przejezdny
 ptkm_a_m2,0.8,teren pod drogami kołowymi szynowymi i lotniskami,utwardzone pasy komunikacyjne
-ptlz_a_m2,-0.7,las i zadrzewienie,drzewa uniemożliwiają jazdę poza duktami
+ptlz_a_m2,-0.8,las i zadrzewienie,drzewa uniemożliwiają jazdę poza duktami (IVRF wg Pokonieczny 2018 tab. 1)
 ptnz_a_m2,0.3,pozostały teren niezabudowany,teren otwarty - przejezdny
 ptpl_a_m2,0.5,plac,utwardzona otwarta powierzchnia
 ptrk_a_m2,-0.4,roślinność krzewiasta,krzewy utrudniają ruch
 ptso_a_m2,-0.6,składowisko odpadów,nierówny i niestabilny grunt
 pttr_a_m2,0.4,roślinność trawiasta i uprawa rolna,pola i łąki - przejezdne (zależnie od pory roku)
 ptut_a_m2,-0.4,uprawa trwała,sady i plantacje - rzędy drzew i podpory
-ptwp_a_m2,-1.0,woda powierzchniowa,całkowicie nieprzejezdna
+ptwp_a_m2,-1.0,woda powierzchniowa,całkowicie nieprzejezdna (IVRF wg Pokonieczny 2018 tab. 1)
 ptwz_a_m2,-0.7,wyrobisko i zwałowisko,strome skarpy i luźny grunt
 ptzb_a_m2,-0.5,zabudowa,gęsta zabudowa ogranicza ruch do ulic
-skdr_l_m,0.9,droga,podstawowy czynnik zwiększający przejezdność
-skjz_l_m,0.6,jezdnia,dubluje częściowo drogi (skdr) - waga obniżona by nie liczyć dróg podwójnie
+skdr_l_m,0.7,droga,podstawowy czynnik zwiększający przejezdność (IVRF wg Pokonieczny 2018 tab. 1)
+skjz_l_m,0.5,jezdnia,dubluje częściowo drogi (skdr) - waga obniżona by nie liczyć dróg podwójnie
 skpp_l_m,0.2,przeprawa,brody i promy - umożliwiają pokonanie wody
 skrp_l_m,0.3,ciąg ruchu pieszego i rowerowego,utwardzone ścieżki - przejezdne dla lekkich pojazdów
 skrw_p_count,0.2,skrzyżowanie / węzeł (do weryfikacji),łączenie sieci drogowej

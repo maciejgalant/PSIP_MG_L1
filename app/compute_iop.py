@@ -1,14 +1,19 @@
-"""LAB 4: Indeks przejezdnosci terenu (IOP) na siatce H3.
+"""LAB 4: Indeks przejezdnosci terenu (IOP) na siatce H3 - metoda VRF.
 
-Kroki:
-  1. Normalizacja: kazde kryterium z grid.h3_aggregation dzielone przez swoje
-     maksimum w obrebie danej rozdzielczosci H3 -> wartosci 0..1
-     (komorka z najwieksza wartoscia = 1).
-  2. Wagi: lista wag eksperckich w przedziale -1..1 (iop_weights.csv),
-     zapisywana takze do bazy jako grid.iop_weights.
-  3. IOP_norm = sum(w_i * k_i) / D, gdzie D = sum(|w_i|) (domyslnie)
-     albo D = n (liczba kryteriow, IOP_DENOMINATOR=n). Wynik w przedziale -1..1.
-  4. Klasy: 5 rownych przedzialow od -1 do 1.
+Metoda wg K. Pokonieczny (2018), "Comparison of land passability maps created
+with use of different spatial data bases", Geografie 123/3, wzory (1) i (2), rys. 4:
+  1. Normalizacja kryteriow (wzor 1, min-max) do przedzialu 0..1:
+       k' = (V - Vmin) / (Vmax - Vmin)
+     liczona osobno dla kazdej rozdzielczosci H3 (jak osobno dla kazdego rozmiaru
+     pola podstawowego w artykule).
+  2. Wspolczynniki IVRF (wagi) w przedziale -1..1 z iop_weights.csv:
+     dodatnie ulatwiaja przejazd, ujemne utrudniaja, 0 = neutralne.
+     Zapis do bazy jako grid.iop_weights.
+  3. IOP = sum(k'_i * IVRF_i) (wzor 2)                    -> kolumna iop_suma
+     dodatkowo wariant z zajec: IOP / n (n = liczba kryteriow) -> iop_srednia (-1..1)
+  4. Ponowna normalizacja min-max IOP do 0..1              -> kolumna iop_norm
+     (0 = najgorsza przejezdnosc w powiecie, 1 = najlepsza).
+  5. Klasy: 5 rownych przedzialow 0..1 (czerwony -> bialy -> zielony).
 
 Wynik: grid.h3_iop (+ widoki grid.h3_iop_res7/8/9 i styl QGIS w public.layer_styles).
 Uruchom w kontenerze python: python /app/compute_iop.py
@@ -35,14 +40,13 @@ register_adapter(np.int32, AsIs)
 
 WEIGHTS_FILE = Path(os.getenv("IOP_WEIGHTS_FILE", Path(__file__).with_name("iop_weights.csv")))
 STYLE_FILE = Path(os.getenv("IOP_STYLE_FILE", Path(__file__).with_name("iop_style.qml")))
-DENOMINATOR = os.getenv("IOP_DENOMINATOR", "abs_sum")  # abs_sum | n
 SOURCE = "h3_aggregation"
 TARGET = "h3_iop"
 KEY_COLUMNS = {"fid", "h3_id", "resolution", "geom"}
 IDENT = re.compile(r"[a-z][a-z0-9_]*")
 
-# 5 rownych przedzialow w zakresie -1..1 (granice wspolne z iop_style.qml).
-CLASS_EDGES = [-1.0, -0.6, -0.2, 0.2, 0.6, 1.0]
+# 5 rownych przedzialow w zakresie 0..1 (granice wspolne z iop_style.qml).
+CLASS_EDGES = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
 CLASS_LABELS = [
     "bardzo trudna",
     "trudna",
@@ -107,14 +111,23 @@ def source_columns(cur):
     return metrics
 
 
+def min_max(values, groups):
+    """Wzor (1): (V - Vmin) / (Vmax - Vmin) -> 0..1, osobno w kazdej grupie (rozdzielczosci).
+
+    Gdy Vmax == Vmin (kryterium stale w calej rozdzielczosci) wynik = 0.
+    """
+    grouped = values.groupby(groups)
+    vmin = grouped.transform("min")
+    span = grouped.transform("max") - vmin
+    return ((values - vmin) / span.where(span > 0)).fillna(0.0)
+
+
 def normalize(frame, metrics):
-    """Min-0 / max-1 w obrebie kazdej rozdzielczosci: x / max(x)."""
+    """Krok 1: normalizacja kazdego kryterium min-max w obrebie rozdzielczosci."""
     values = frame[metrics].astype(float)
-    if (values < 0).any().any():
-        raise ValueError("Ujemne wartosci w agregacji - normalizacja x/max wymaga x >= 0")
-    maxima = values.groupby(frame["resolution"]).transform("max")
-    normalized = (values / maxima.where(maxima > 0)).fillna(0.0)
-    return normalized
+    if values.isna().any().any():
+        raise ValueError("Puste wartosci (NULL) w agregacji")
+    return min_max(values, frame["resolution"])
 
 
 def classify(iop):
@@ -127,8 +140,6 @@ def main():
     start = time.monotonic()
     weights = read_weights(WEIGHTS_FILE)
     weight_map = {name: value for name, value, *_ in weights}
-    if DENOMINATOR not in ("abs_sum", "n"):
-        raise ValueError("IOP_DENOMINATOR musi byc 'abs_sum' albo 'n'")
 
     conn = connect()
     try:
@@ -158,18 +169,22 @@ def main():
         norm = normalize(frame, metrics)
         # 2. Wektor wag w tej samej kolejnosci co kolumny macierzy.
         w = np.array([weight_map[m] for m in metrics])
-        # 3. IOP = (K . w) / D
-        denominator = np.abs(w).sum() if DENOMINATOR == "abs_sum" else float(len(metrics))
-        iop = norm.to_numpy() @ w / denominator
-        if np.isnan(iop).any() or iop.min() < -1 - 1e-9 or iop.max() > 1 + 1e-9:
-            raise RuntimeError("IOP poza zakresem -1..1 - blad obliczen")
-        iop = np.clip(iop, -1.0, 1.0)
+        # 3. IOP = K . w  (wzor 2) oraz wariant z zajec IOP / n.
+        iop_sum = norm.to_numpy() @ w
+        iop_mean = iop_sum / len(metrics)
+        # 4. Ponowna normalizacja min-max do 0..1, osobno w kazdej rozdzielczosci.
+        iop = min_max(pd.Series(iop_sum), frame["resolution"].reset_index(drop=True)).to_numpy()
+        if np.isnan(iop).any() or iop.min() < -1e-9 or iop.max() > 1 + 1e-9:
+            raise RuntimeError("IOP_norm poza zakresem 0..1 - blad obliczen")
+        iop = np.clip(iop, 0.0, 1.0)
         classes = classify(iop)
 
         norm_cols = [f"{m}_norm" for m in metrics]
         out = pd.DataFrame(norm.to_numpy(), columns=norm_cols)
         out.insert(0, "resolution", frame["resolution"].to_numpy())
         out.insert(0, "h3_id", frame["h3_id"].to_numpy())
+        out["iop_suma"] = iop_sum
+        out["iop_srednia"] = iop_mean
         out["iop_norm"] = iop
         out["iop_klasa"] = classes
         out["iop_opis"] = [CLASS_LABELS[c - 1] for c in classes]
@@ -192,6 +207,7 @@ def main():
             cur.execute(sql.SQL("""
                 CREATE TEMP TABLE iop_values (
                     h3_id text PRIMARY KEY, resolution integer, {norms},
+                    iop_suma double precision, iop_srednia double precision,
                     iop_norm double precision, iop_klasa smallint, iop_opis text
                 ) ON COMMIT DROP
             """).format(norms=sql.SQL(", ").join(
@@ -212,8 +228,14 @@ def main():
             cur.execute("CREATE UNIQUE INDEX ON grid.h3_iop_new (h3_id)")
             cur.execute("CREATE INDEX ON grid.h3_iop_new (resolution)")
             cur.execute("CREATE INDEX ON grid.h3_iop_new USING GIST (geom)")
-            cur.execute("COMMENT ON COLUMN grid.h3_iop_new.iop_norm IS %s",
-                        (f"IOP = sum(w_i*k_i)/{'sum|w_i|' if DENOMINATOR == 'abs_sum' else 'n'}; zakres -1..1",))
+            for column, comment in [
+                ("iop_suma", "IOP = sum(k_i * IVRF_i), k_i znormalizowane min-max (Pokonieczny 2018, wzor 2)"),
+                ("iop_srednia", "IOP / n, n = liczba kryteriow (wariant z zajec), zakres -1..1"),
+                ("iop_norm", "IOP znormalizowany min-max w obrebie rozdzielczosci: 0 = najgorsza, 1 = najlepsza przejezdnosc"),
+                ("iop_klasa", "5 rownych przedzialow iop_norm: 1 = 0-0.2 ... 5 = 0.8-1"),
+            ]:
+                cur.execute(sql.SQL("COMMENT ON COLUMN grid.h3_iop_new.{} IS %s").format(sql.Identifier(column)),
+                            (comment,))
 
             # Podmiana wyniku w jednej transakcji (widoki zaleza od tabeli).
             for res in resolutions:
@@ -227,11 +249,14 @@ def main():
             cur.execute("ANALYZE grid.h3_iop")
         conn.commit()
 
-        summary = out.groupby("resolution")["iop_norm"].agg(["count", "min", "mean", "max"])
+        summary = out.groupby("resolution").agg(
+            komorki=("iop_norm", "size"), suma_min=("iop_suma", "min"), suma_max=("iop_suma", "max"),
+            srednia_min=("iop_srednia", "min"), srednia_max=("iop_srednia", "max"),
+            norm_srednia=("iop_norm", "mean"), norm_mediana=("iop_norm", "median"))
         print("IOP per rozdzielczosc:\n" + summary.round(4).to_string(), flush=True)
         counts = out.groupby(["resolution", "iop_opis"]).size().unstack(fill_value=0)
         print("Liczba komorek w klasach:\n" + counts.reindex(columns=CLASS_LABELS, fill_value=0).to_string(), flush=True)
-        print(f"GOTOWE: grid.h3_iop ({len(out)} komorek, mianownik={DENOMINATOR}={denominator:g}); "
+        print(f"GOTOWE: grid.h3_iop ({len(out)} komorek, {len(metrics)} kryteriow); "
               f"czas {time.monotonic() - start:.1f} s", flush=True)
     except Exception:
         conn.rollback()
@@ -272,7 +297,7 @@ def save_qgis_style(cur, tables):
                 (f_table_catalog, f_table_schema, f_table_name, f_geometry_column,
                  stylename, styleqml, useasdefault, description)
             VALUES (current_database(), 'grid', %s, 'geom', 'IOP przejezdnosc', %s::xml, true,
-                    'IOP: 5 rownych przedzialow -1..1, czerwony-bialy-zielony')
+                    'IOP_norm: 5 rownych przedzialow 0..1, czerwony-bialy-zielony')
         """, (table, qml))
 
 

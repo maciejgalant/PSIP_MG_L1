@@ -1,14 +1,14 @@
 <!DOCTYPE qgis PUBLIC 'http://mrcc.com/qgis.dtd' 'SYSTEM'>
 <qgis version="3.34.0" styleCategories="Symbology">
-  <!-- IOP: 5 rownych przedzialow -1..1 (kolumna iop_klasa liczona w compute_iop.py).
-       Kolory: -1 czerwony -> 0 bialy -> 1 zielony. -->
+  <!-- IOP_norm: 5 rownych przedzialow 0..1 (kolumna iop_klasa liczona w compute_iop.py).
+       Kolory: 0 czerwony (nieprzejezdny) -> 0.5 bialy -> 1 zielony (najlepsza przejezdnosc). -->
   <renderer-v2 type="categorizedSymbol" attr="iop_klasa" symbollevels="0" enableorderby="0" forceraster="0" referencescale="-1">
     <categories>
-      <category value="1" symbol="0" label="-1.0 … -0.6  bardzo trudna" render="true" type="integer"/>
-      <category value="2" symbol="1" label="-0.6 … -0.2  trudna" render="true" type="integer"/>
-      <category value="3" symbol="2" label="-0.2 … 0.2  przeciętna" render="true" type="integer"/>
-      <category value="4" symbol="3" label="0.2 … 0.6  dobra" render="true" type="integer"/>
-      <category value="5" symbol="4" label="0.6 … 1.0  bardzo dobra" render="true" type="integer"/>
+      <category value="1" symbol="0" label="0.0 … 0.2  bardzo trudna" render="true" type="integer"/>
+      <category value="2" symbol="1" label="0.2 … 0.4  trudna" render="true" type="integer"/>
+      <category value="3" symbol="2" label="0.4 … 0.6  przeciętna" render="true" type="integer"/>
+      <category value="4" symbol="3" label="0.6 … 0.8  dobra" render="true" type="integer"/>
+      <category value="5" symbol="4" label="0.8 … 1.0  bardzo dobra" render="true" type="integer"/>
     </categories>
     <symbols>
       <symbol type="fill" name="0" alpha="1" clip_to_extent="1" force_rhr="0" frame_rate="10" is_animated="0">
