@@ -10,6 +10,8 @@ from __future__ import annotations
 import os
 import queue
 import shutil
+import subprocess
+import sys
 import tkinter as tk
 from tkinter import messagebox, ttk
 
@@ -85,7 +87,8 @@ class Lab3App(tk.Tk):
         self.btn_png = ttk.Button(row2, text="Mapy PNG", command=self.plot_maps)
         self.btn_png.pack(side="left", padx=(0, 8))
         ttk.Button(row2, text="Mapa H3 / IOP", command=self.open_map).pack(side="left", padx=(0, 8))
-        ttk.Button(row2, text="Wagi IVRF", command=self.open_weights).pack(side="left")
+        ttk.Button(row2, text="Wagi IVRF", command=self.open_weights).pack(side="left", padx=(0, 8))
+        ttk.Button(row2, text="Aplikacja GIS", command=self.open_gis).pack(side="left")
         ttk.Label(controls, textvariable=self.status).pack(anchor="w", pady=(10, 0))
 
         overview = ttk.LabelFrame(container, text="PostGIS / grid", padding=12)
@@ -185,6 +188,12 @@ class Lab3App(tk.Tk):
             self.weights_window.lift()
             return
         self.weights_window = WeightsEditor(self, on_saved=self.check_database)
+
+    def open_gis(self) -> None:
+        """Aplikacja GIS (logowanie, mapa, SHP, analiza wag, PDF) w osobnym procesie."""
+        script = ROOT / "gui" / "gis_app.py"
+        subprocess.Popen([sys.executable, str(script)], cwd=str(ROOT))
+        self._append(f"Uruchomiono {script.relative_to(ROOT)}")
 
     def _poll(self) -> None:
         try:

@@ -48,3 +48,31 @@ py gui/weights_editor.py  # edytor wag IVRF -> app/iop_weights.csv, "Zapisz i pr
 
 Mapę i edytor wag można też otworzyć przyciskami w panelu. Na mapie: kółko myszy = zoom,
 przeciąganie = przesuwanie, kliknięcie heksagonu = IOP komórki i kryteria o największym wpływie (k·w).
+
+## Aplikacja GIS (Tkinter, branch `gui/mapa-gis`)
+
+```powershell
+py gui/gis_app.py         # albo przycisk „Aplikacja GIS” w panelu lab3_app.py
+```
+
+Tylko biblioteka standardowa Pythona – SHP, układy współrzędnych i PDF są zaimplementowane w `gui/`.
+Przy pierwszym uruchomieniu zakładasz konto (zapis w `gui/users.json`, hasła PBKDF2-SHA256, plik w `.gitignore`).
+Każdy przycisk paska narzędzi otwiera okno modalne.
+
+| Przycisk | Funkcja |
+|---|---|
+| Wczytaj SHP | przeglądarka folderów i plików `.shp` (+ systemowe „Przeglądaj…”), rozpoznanie układu z `.prj` (2180, 4326, 3857, dowolny TM), przeliczenie do EPSG:2180 |
+| H3 z PostGIS | warstwa `grid.h3_iop` (R7/R8/R9) + granica `public.powiat` (wymaga `docker-compose-local.yml`) |
+| Analiza i wagi | suwak wagi IVRF −1..1 przy każdym kryterium `*_norm`, IOP przeliczany na żywo (Σ k·w → min-max, jak `compute_iop.py`), zapis do `app/iop_weights.csv`, przeliczenie w PostGIS |
+| Styl warstwy | jeden symbol albo schemat stopniowany: pole, zakres min–max, liczba klas, kolory schematu, obrys |
+| Szukaj | wyszukiwanie w atrybutach (pole / wszystkie pola, `zawiera = ≠ > ≥ < ≤`), tabela wyników, zaznaczanie i zoom |
+| Zoom do obiektu | lista obiektów warstwy z filtrem, zoom do obiektu / warstwy / wszystkich warstw |
+| Pomiar odległości | 2 punkty na mapie → odległość w metrach (geodezyjna GRS80 + płaska 2180) |
+| Warstwa punktowa / Zapisz SHP | dodawanie punktów kliknięciem (Ctrl+Z cofa, Esc kończy), zapis `.shp/.shx/.dbf/.cpg/.prj` (EPSG:2180) |
+| Jasny / ciemny | motyw całej aplikacji i tła mapy |
+| Eksport PDF | wektorowy PDF (A4/A3, poziomo/pionowo) z legendą, podziałką, skalą wydruku i osadzoną czcionką |
+| Wyloguj | potwierdzenie i powrót do ekranu logowania |
+
+Panel warstw: widoczność, kolejność rysowania (▲▼, góra listy = na wierzchu), usuwanie, legenda pod każdą warstwą.
+Pasek stanu: współrzędne kursora w EPSG:4326 / 3857 / 2180, aktualna skala (można wpisać własną), tryb pracy.
+Mapa: kółko = zoom, przeciąganie = przesuwanie, klik = informacje o obiekcie.
