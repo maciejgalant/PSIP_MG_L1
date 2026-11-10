@@ -1,0 +1,62 @@
+kryterium,waga,klasa_bdot,uzasadnienie
+adja_a_m2,0.0,jednostka podziału administracyjnego,granica formalna - brak fizycznego wpływu na ruch
+adms_a_m2,0.0,miejscowość (obszar),obszar administracyjny - wpływ zabudowy ujęty w ptzb i bubd
+adms_p_count,0.0,miejscowość (punkt),punkt adresowy - brak fizycznego wpływu
+bubd_a_m2,-0.9,budynek,przeszkoda nieprzejezdna - pojazd musi ją ominąć
+buhd_a_m2,-0.6,budowla hydrotechniczna (powierzchnia),zapory jazy śluzy - przeszkoda związana z wodą
+buhd_l_m,-0.5,budowla hydrotechniczna (linia),groble i progi - przeszkoda liniowa
+buin_l_m,0.4,inżynierska budowla komunikacyjna,mosty i wiadukty pozwalają pokonać rzeki tory i drogi
+buit_a_m2,-0.4,inne urządzenie techniczne (powierzchnia),ogrodzone obiekty techniczne
+buit_p_count,-0.1,inne urządzenie techniczne (punkt),pojedyncze drobne przeszkody
+busp_a_m2,-0.2,budowla sportowa (powierzchnia),boiska i stadiony - przejezdne lecz zwykle ogrodzone
+busp_l_m,-0.2,budowla sportowa (linia),tory sportowe - niewielka przeszkoda
+butr_l_m,-0.3,urządzenie transportowe,taśmociągi i rampy - przeszkoda liniowa
+buuo_l_m,-0.4,umocnienie drogowe kolejowe i wodne,skarpy i nabrzeża - uskoki terenu
+buwt_p_count,-0.2,wysoka budowla techniczna,maszty kominy turbiny - przeszkody punktowe
+buzm_l_m,-0.6,budowla ziemna,wały nasypy i wykopy - silna przeszkoda liniowa
+buzt_a_m2,-0.6,zbiornik techniczny (powierzchnia),osadniki i zbiorniki - nieprzejezdne
+buzt_p_count,-0.2,zbiornik techniczny (punkt),pojedyncze zbiorniki
+kuho_a_m2,-0.3,kompleks usług hotelowych,zabudowa i ogrodzenia
+kuhu_a_m2,-0.2,kompleks handlowo-usługowy,zabudowa łagodzona parkingami i placami
+kuko_a_m2,0.3,kompleks komunikacyjny,stacje i parkingi - utwardzone powierzchnie
+kuko_p_count,0.1,kompleks komunikacyjny (punkt),węzły komunikacyjne
+kuos_a_m2,-0.3,kompleks oświaty nauki i kultury,zabudowa i ogrodzenia
+kuoz_a_m2,-0.3,kompleks ochrony zdrowia i opieki społecznej,zabudowa i ogrodzenia
+kupg_a_m2,-0.4,kompleks przemysłowo-gospodarczy,ogrodzone tereny z gęstą infrastrukturą
+kupg_p_count,-0.1,kompleks przemysłowo-gospodarczy (punkt),pojedyncze obiekty
+kusc_a_m2,-0.5,kompleks sakralny i cmentarz,nagrobki i mury - teren praktycznie nieprzejezdny
+kusk_a_m2,-0.1,kompleks sportowo-rekreacyjny,parki i boiska - w większości przejezdne
+kuza_a_m2,-0.3,kompleks zabytkowo-historyczny,zabudowa i ograniczenia
+oikm_l_m,0.1,obiekt związany z komunikacją (linia),elementy infrastruktury drogowej
+oikm_p_count,0.1,obiekt związany z komunikacją (punkt),przystanki i parkingi
+oimk_a_m2,-0.9,mokradło,grunt grząski - pojazd grzęźnie
+oior_a_m2,-0.2,obiekt o znaczeniu orientacyjnym (powierzchnia),ruiny i podobne obiekty
+oior_l_m,-0.3,obiekt o znaczeniu orientacyjnym (linia),mury i ogrodzenia
+oior_p_count,-0.1,obiekt o znaczeniu orientacyjnym (punkt),pojedyncze obiekty
+oipr_l_m,-0.4,obiekt przyrodniczy (linia),skarpy i krawędzie terenu
+oipr_p_count,-0.1,obiekt przyrodniczy (punkt),pojedyncze drzewa i głazy
+oisz_a_m2,-0.7,szuwary,podmokły grunt z roślinnością
+ptgn_a_m2,0.2,grunt nieużytkowy / odsłonięty,teren otwarty bez roślinności - przejezdny
+ptkm_a_m2,0.8,teren pod drogami kołowymi szynowymi i lotniskami,utwardzone pasy komunikacyjne
+ptlz_a_m2,-0.8,las i zadrzewienie,drzewa uniemożliwiają jazdę poza duktami (IVRF wg Pokonieczny 2018 tab. 1)
+ptnz_a_m2,0.3,pozostały teren niezabudowany,teren otwarty - przejezdny
+ptpl_a_m2,0.5,plac,utwardzona otwarta powierzchnia
+ptrk_a_m2,-0.4,roślinność krzewiasta,krzewy utrudniają ruch
+ptso_a_m2,-0.6,składowisko odpadów,nierówny i niestabilny grunt
+pttr_a_m2,0.4,roślinność trawiasta i uprawa rolna,pola i łąki - przejezdne (zależnie od pory roku)
+ptut_a_m2,-0.4,uprawa trwała,sady i plantacje - rzędy drzew i podpory
+ptwp_a_m2,-1.0,woda powierzchniowa,całkowicie nieprzejezdna (IVRF wg Pokonieczny 2018 tab. 1)
+ptwz_a_m2,-0.7,wyrobisko i zwałowisko,strome skarpy i luźny grunt
+ptzb_a_m2,-0.5,zabudowa,gęsta zabudowa ogranicza ruch do ulic
+skdr_l_m,0.7,droga,podstawowy czynnik zwiększający przejezdność (IVRF wg Pokonieczny 2018 tab. 1)
+skjz_l_m,0.5,jezdnia,dubluje częściowo drogi (skdr) - waga obniżona by nie liczyć dróg podwójnie
+skpp_l_m,0.2,przeprawa,brody i promy - umożliwiają pokonanie wody
+skrp_l_m,0.3,ciąg ruchu pieszego i rowerowego,utwardzone ścieżki - przejezdne dla lekkich pojazdów
+skrw_p_count,0.2,skrzyżowanie / węzeł (do weryfikacji),łączenie sieci drogowej
+sktr_l_m,-0.4,tor lub zespół torów,nasyp i szyny - przeszkoda poza przejazdami
+suln_l_m,0.0,linia elektroenergetyczna,napowietrzna - brak wpływu na ruch naziemny
+supr_l_m,-0.1,przewód rurowy,w większości podziemny - odcinki naziemne są przeszkodą
+swkn_l_m,-0.7,kanał,przeszkoda wodna z umocnionymi brzegami
+swrm_l_m,-0.4,rów melioracyjny,wąska lecz częsta przeszkoda
+swrs_l_m,-0.8,rzeka i strumień,przeszkoda wodna - wymaga mostu lub brodu
+tcon_a_m2,0.0,obszar Natura 2000,ograniczenie prawne - brak fizycznego wpływu

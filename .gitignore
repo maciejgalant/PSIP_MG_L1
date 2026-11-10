@@ -1,0 +1,5 @@
+app/output/
+__pycache__/
+gui/users.json
+gui/users.tmp
+data/wyniki/

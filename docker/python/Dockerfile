@@ -30,7 +30,9 @@ RUN pip install --no-cache-dir \
     fiona \
     psycopg2-binary \
     sqlalchemy \
-    geoalchemy2
+    geoalchemy2 \
+    pandas \
+    matplotlib
 
 WORKDIR /app
 
